@@ -19,15 +19,68 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
+  modal,
 }: Readonly<{
   children: React.ReactNode;
+  modal: React.ReactNode,
 }>) {
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+            <main className="min-h-screen bg-neutral-100 text-neutral-900">
+              <header className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 lg:py-10">
+                {/* 상단 좌/우: 설명문 & About */}
+                <div className="flex items-start justify-between text-[11px] sm:text-xs uppercase tracking-wider text-neutral-600">
+                  <p className="max-w-[18rem] leading-snug">
+                    This is a place to record information
+                    <br />about daily events, emotions.
+                  </p>
+                  <a
+                    href="/about"
+                    className="underline underline-offset-4 hover:no-underline hover:text-neutral-900"
+                  >
+                    About
+                  </a>
+                </div>
+        
+                {/* 커다란 로고: PICLOG (O 위 점 포인트) */}
+                <h1
+                  className="
+                    mt-6 lg:mt-8
+                    font-extrabold leading-[0.85]
+                    text-[18vw] sm:text-[14vw] md:text-[12vw] lg:text-[10vw]
+                    tracking-tight select-none
+                  "
+                  aria-label="PICLOG"
+                >
+                  <span className="relative inline-block">
+                    PICLOG
+                  
+                  </span>
+                </h1>
+        
+                {/* 구분선 + TITLE / ImageMode 라인 */}
+                <hr className="mt-6 border-neutral-400/70" />
+                <div className="flex items-center justify-between text-[11px] sm:text-xs uppercase tracking-wider text-neutral-600">
+                  <span className="py-2">Title</span>
+                  <button
+                    type="button"
+                    className="py-2 hover:text-neutral-900"
+                    aria-pressed="false"
+                  >
+                    ParanomaMode
+                    {/* StackMode */}
+                  </button>
+                </div>
+                <hr className="border-neutral-300/70" />
+              </header>
+        
         {children}
+        {modal}
+        </main>
+
       </body>
     </html>
   );
