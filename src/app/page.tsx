@@ -1,103 +1,137 @@
-import Image from "next/image";
+import Link from "next/link";
+import ImageCard from "./_component/ImageCard";
+import FloatingDock from "./_component/FloatingDock";
+import { supabase } from "../../utils/supabase";
 
-export default function Home() {
+const COLS = 6;
+
+function formatDateLabel(shot_date: string) {
+  const d = new Date(shot_date);                  // "2024-01-01" → Date 객체로 변환
+  if (Number.isNaN(d.getTime())) return shot_date; // 혹시 이상한 문자열이면 그냥 원본 반환
+  const y = d.getFullYear();                      // 2024
+  const m = d.toLocaleString("en-US", { month: "short" }); // "Jan"
+  return `${y} ${m}`;                             // "2024 Jan"
+}
+
+async function fetchPosts(){
+  const {data , error} = await supabase
+  .from("posts")
+  .select(
+    `
+    id,
+    shot_date,
+    location,
+    description,
+    post_images (
+      storage_path,
+      order_index
+    )
+  `
+  )
+  .order("shot_date", {ascending: true})
+
+  if(error){
+    console.error("post select error", error);
+    return [];
+  }
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    data
+      // 커버 이미지(order_index 가장 작은 것) 찾기
+      .map((post) => {
+        const images = (post.post_images ?? []).sort(
+          (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)
+        );
+        const cover = images[0];
+        if (!cover) return null; // 이미지 없는 포스트는 메인에서 스킵
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+        const coverUrl =
+          supabase.storage.from("images").getPublicUrl(cover.storage_path)
+            .data.publicUrl;
+
+        return {
+          id: post.id,
+          href: `/archive/${post.id}`, // 상세 페이지 라우트
+          src: coverUrl,
+          label: post.location || "Unknown",
+          date: formatDateLabel(post.shot_date),
+          description: post.description,
+        };
+      })
+      .filter(Boolean) as {
+        id: string;
+        href: string;
+        src: string;
+        label: string;
+        date: string;
+        description: string | null;
+      }[]
+  );}
+// 행마다 다른 빈칸 위치(0-based col index)
+// 행 개수보다 적어도 자동으로 순환해서 사용됩니다.
+const blankPatterns: Array<Set<number>> = [
+  new Set([2, 4]), // row 0: 2,4 비움
+  new Set([1, 5]), // row 1: 1,5 비움
+  new Set([0, 3]), // row 2: 0,3 비움
+]; 
+
+export default async function Home() {
+  const posts = await fetchPosts();
+  const cells: React.ReactNode[] = [];
+  let row = 0;
+  let dataIdx = 0;
+
+  // months를 다 소진할 때까지 행 단위로 채워 넣음
+  while (dataIdx < posts.length) {
+    const blanks = blankPatterns[row % blankPatterns.length];
+    for (let col = 0; col < COLS; col++) {
+      if (blanks.has(col)) {
+        cells.push(
+          <div
+            key={`blank-${row}-${col}`}
+            className="invisible aspect-[3/4]"
+            aria-hidden
+          />
+        );
+      } else {
+        if (dataIdx >= posts.length) {
+          // 아이템 소진 시 남는 칸은 그냥 빈칸 처리
+          cells.push(
+            <div
+              key={`blank-end-${row}-${col}`}
+              className="invisible aspect-[3/4]"
+              aria-hidden
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+          );
+        } else {
+          const m = posts[dataIdx++];
+          cells.push(
+            // <Link href={`/archive/${m.label.toLocaleLowerCase()}`} key={`${m.label}-${row}-${col}`} className="flex flex-col gap-2 cursor-pointer">
+            //   <img src={m.src} alt={m.label} className="w-full h-auto object-cover" />
+            //   <span className="text-xs font-bold uppercase tracking-wide text-neutral-800">
+            //     {m.label}
+            //   </span>
+            // </Link>
+            <ImageCard
+            key={`${m.label}-${row}-${col}`}
+            href={`/archive/${m.label.toLowerCase()}`}
+            src={m.src}
+            label={"Turkey"}            // 혹은 m.place 같은 필드로
+            date={m.label}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+          );
+        }
+      }
+    }
+    row++;
+  }
+
+  return (
+    <section className="px-10 pt-28">
+      <div className="grid grid-cols-6 gap-10 auto-rows-fr">
+        {cells}
+      </div>
+      <FloatingDock />
+    </section>
   );
 }
