@@ -1,29 +1,24 @@
 // src/app/_component/LoginForm.tsx
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { loginAction } from "../action/auth";
 
-//{ redirect = "/upload" }: { redirect?: string }
 export default function LoginForm() {
-  const router = useRouter();
-  const [email, setEmail] = useState(""); const [pw, setPw] = useState("");
-
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // TODO: 실로그인 → 성공으로 가정
-    //router.replace(redirect); // ✨ 다시 /upload 모달로
-  };
+  const [email, setEmail] = useState("");
+  const [pw, setPw] = useState("");
 
   return (
-    <form onSubmit={onSubmit} className="px-12 py-12 space-y-4">
+    <form action={loginAction} className="px-12 py-12 space-y-4">
       <div className="space-y-1">
         <label className="text-xs uppercase tracking-wide">Email</label>
         <input
+          name="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="w-full border rounded px-3 py-2"
           placeholder="you@email.com"
+          autoComplete="username"
           type="email"
           required
         />
@@ -31,10 +26,12 @@ export default function LoginForm() {
       <div className="space-y-1">
         <label className="text-xs uppercase tracking-wide">Password</label>
         <input
+          name="password"
           value={pw}
           onChange={(e) => setPw(e.target.value)}
           className="w-full border rounded px-3 py-2"
           placeholder="••••••••"
+          autoComplete="current-password"
           type="password"
           required
         />
