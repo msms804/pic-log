@@ -1,23 +1,42 @@
 // app/edit/page.tsx
 import Link from "next/link";
-// TODO: Supabase에서 posts + post_images 테이블 join해서 데이터 가져오기
+import { supabase } from "../../../../utils/supabase/supabase";
 
 export default async function EditListPage() {
-  const posts = [
-    { 
-      id: "1", 
-      shot_date: "2024-01-01", 
-      location: "Istanbul, Turkey",
-      thumbnail: "/1.jpeg",
-    },
-    { 
-      id: "2", 
-      shot_date: "2024-02-10", 
-      location: "Seoul, Korea",
-      thumbnail: "/2.jpeg",
-    },
-  ];
 
+    const {data, error} = await supabase
+    .from("posts")
+    .select( 
+        `
+        id,
+        shot_date,
+        location,
+        post_images (
+          storage_path,
+          order_index
+        )
+      `
+    )
+    .order("shot_date", {ascending: false})
+  
+    const posts = (data ?? []).map((p) => {
+      const ordered = [...(p.post_images ?? [])].sort(
+        (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)
+      )
+      const first = ordered[0]
+
+      const thumburl = first 
+      ? supabase.storage.from("images").getPublicUrl(first.storage_path).data
+      .publicUrl
+      : "/placeholder.jpeg" // 대체 이미지
+
+      return {
+        id: p.id,
+        shot_date: p.shot_date,
+        location: p.location,
+        thumbnail: thumburl,
+      }
+    })
   return (
     <main className="min-h-screen bg-neutral-50 pt-20 px-10">
       <div className="mx-auto max-w-5xl">
