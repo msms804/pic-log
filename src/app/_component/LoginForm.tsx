@@ -3,8 +3,9 @@
 
 import { useState } from "react";
 import { loginAction } from "../action/auth";
+import Link from "next/link";
 
-export default function LoginForm() {
+export default function LoginForm({redirect} : {redirect: string}) {
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
 
@@ -40,6 +41,16 @@ export default function LoginForm() {
       <button type="submit" className="w-full bg-black text-white py-2 rounded">
         Sign in
       </button>
+      <div className="text-xs text-neutral-500 text-center mt-2">
+        처음이세요?{" "}
+        <Link
+          href={`/signup?redirect=${encodeURIComponent(redirect)}`}
+          replace
+          className="underline"        
+        >
+          회원가입하러 가기
+        </Link>
+      </div>
     </form>
   );
 }

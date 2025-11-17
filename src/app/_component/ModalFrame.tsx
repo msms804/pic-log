@@ -23,7 +23,7 @@ export default function ModalFrame({ title, children, size = "md" }: Props) {
     <div className="fixed inset-0 z-[100]">
       {/* 어두운 배경 */}
       <div
-        className="absolute inset-0 bg-black/50"
+        className="absolute inset-0 bg-black/50 z-0"
         onClick={() => router.back()}
       />
 
@@ -33,7 +33,7 @@ export default function ModalFrame({ title, children, size = "md" }: Props) {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 24 }}
         className={`
-          absolute left-1/2 top-16 -translate-x-1/2
+          absolute left-1/2 top-16 -translate-x-1/2 z-10
           w-full ${sizeMap[size]} rounded-xl bg-white shadow-2xl
           max-h-[85vh] overflow-y-auto
         `}
