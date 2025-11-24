@@ -1,7 +1,7 @@
-// app/(afterlogin)/edit/[id]/EditImageOrderClient.tsx
+// app/(afterlogin)/edit/[id]/_component/EditImageOrderClient.tsx
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DndContext, DragEndEvent } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -11,19 +11,36 @@ import {
 import SortableThumb from "@/app/_component/SortableThumb";
 
 type EditableImage = {
-  id: string;
+  id: string;          // post_images.id (문자열)
   order: number | null;
   url: string;
   file?: File;
 };
 
-export default function EditImageOrderClient({
-  initialImages,
-}: {
+type Props = {
   initialImages: EditableImage[];
-}) {
-  const [images, setImages] = useState<EditableImage[]>(initialImages);
+};
+
+export default function EditImageOrderClient({ initialImages }: Props) {
+  const [images, setImages] = useState<EditableImage[]>(() =>
+    initialImages.map((img, idx) => ({
+      ...img,
+      order: img.order ?? idx,
+    }))
+  );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // 🔥 서버로 보낼 JSON 문자열
+  const [imagesOrderJson, setImagesOrderJson] = useState("");
+
+  // images 상태가 바뀔 때마다 images_order hidden input용 JSON 업데이트
+  useEffect(() => {
+    const payload = images.map((img, idx) => ({
+      id: img.id,
+      order: idx, // 현재 배열 순서를 그대로 서버에 보내기
+    }));
+    setImagesOrderJson(JSON.stringify(payload));
+  }, [images]);
 
   const handleDragEnd = (e: DragEndEvent) => {
     const { active, over } = e;
@@ -36,7 +53,6 @@ export default function EditImageOrderClient({
 
       const moved = arrayMove(prev, oldIndex, newIndex);
 
-      // 필요하면 여기서 order도 다시 매겨 줄 수 있음
       return moved.map((img, idx) => ({
         ...img,
         order: idx,
@@ -45,47 +61,44 @@ export default function EditImageOrderClient({
   };
 
   const handleRemove = (id: string) => {
-    console.log("삭제 클릭 id: ", id)
-    setImages((prev) => 
-      prev.filter((img) => img.id !== id)
-      .map((img, idx) => ({
-        ...img,
-        order: idx, // 삭제 후 order 다시 정렬
-      }))
-    )
-  }
+    setImages((prev) =>
+      prev
+        .filter((img) => img.id !== id)
+        .map((img, idx) => ({
+          ...img,
+          order: idx,
+        }))
+    );
+  };
 
   const handleClickAdd = () => {
     const el = fileInputRef.current;
-    if(!el) return;
+    if (!el) return;
     el.click();
-    }
-    // 파일 선택되었을 때 썸네일 리스트에 추가
-    const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
-        // images에 추가해야할 것 같음
-        const files = Array.from(e.target.files ?? []);
-        console.log('[onPickFiles] files:', files.map(f => ({ name: f.name, type: f.type, size: f.size })));
+  };
 
-        
-        if(!files.length) return;
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
 
-        const startOrder = images.length;
+    const startOrder = images.length;
 
-        const next = files.map((file, idx) => ({
-            id: `local-${startOrder + idx}-${crypto.randomUUID()}`,
-            order: startOrder + idx,
-            url: URL.createObjectURL(file),
-            file,
-        }))
-        console.log(">> ", next)
+    const next = files.map((file, idx) => ({
+      id: `local-${startOrder + idx}-${crypto.randomUUID()}`,
+      order: startOrder + idx,
+      url: URL.createObjectURL(file),
+      file,
+    }));
 
-        setImages((prev) => [...prev, ...next])
+    setImages((prev) => [...prev, ...next]);
+    e.target.value = "";
+  };
 
-        // 같은 파일 다시 선택할 수 있게 초기화
-        e.target.value = "";
-    }
-    return (
+  return (
     <div className="space-y-3 border-t bg-white px-4 py-3">
+      {/* 🔥 여기 hidden input 추가: formData.get("images_order") 로 들어감 */}
+      <input type="hidden" name="images_order" value={imagesOrderJson} />
+
       <div className="flex items-center justify-between text-[11px] text-neutral-500">
         <span className="font-medium uppercase tracking-[0.18em]">
           Order
@@ -93,14 +106,15 @@ export default function EditImageOrderClient({
         <span>드래그해서 순서를 바꿔보세요.</span>
       </div>
 
-        <input 
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="sr-only"
-            onChange={handleFileSelected}
-        />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="sr-only"
+        onChange={handleFileSelected}
+      />
+
       <DndContext onDragEnd={handleDragEnd}>
         <SortableContext
           items={images.map((img) => img.id)}
@@ -117,7 +131,6 @@ export default function EditImageOrderClient({
               />
             ))}
 
-            {/* 이미지 추가 버튼 (나중에 업로드 기능 연결) */}
             <li>
               <button
                 type="button"
