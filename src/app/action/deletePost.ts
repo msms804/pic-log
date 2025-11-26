@@ -1,46 +1,66 @@
+// src/app/action/deletePost.ts
 "use server";
 
-import { createClient } from "../../../utils/supabase/server";
 import { redirect } from "next/navigation";
+import { createClient } from "../../../utils/supabase/server";
+import { revalidatePath } from "next/cache";
 
-export async function deletePostAction(formData: FormData){
-    const supabase = await createClient();
+export async function deletePostAction(postId: string) {
+  const supabase = await createClient();
 
-    const postId = formData.get("post_id") as string;
-    if(!postId) throw new Error("post_id 누락됨");
+  // 0) 이 포스트가 내 것인지 체크하고 싶으면 여기서 auth.getUser() + posts.user_id 비교
+  //    (지금은 RLS로 막았다면 생략 가능)
 
-    // 1) 로그인 유저 확인
-    const {
-        data: {user},
-        error: userErr,
-    } = await supabase.auth.getUser();
+  // 1) 이 포스트에 연결된 이미지 정보 먼저 가져오기
+  const { data: images, error: imgSelectErr } = await supabase
+    .from("post_images")
+    .select("storage_path")
+    .eq("post_id", postId);
 
-    if(userErr || !user){
-        console.error(userErr);
-        throw new Error("로그인이 필요합니다.");
+  if (imgSelectErr) {
+    console.error("post_images 조회 실패:", imgSelectErr);
+    throw imgSelectErr;
+  }
+
+  // 2) 스토리지에서 실제 파일 삭제
+  if (images && images.length > 0) {
+    const paths = images.map((img) => img.storage_path);
+
+    const { error: storageErr } = await supabase
+      .storage
+      .from("images")
+      .remove(paths);
+
+    if (storageErr) {
+      console.error("Storage 이미지 삭제 실패:", storageErr);
+      // 여기서 바로 throw 할지, 일단 DB만 지울지 정책에 따라 결정
+      throw storageErr;
     }
+  }
 
-    // 2) post_images 먼저 삭제
-    const {error: imgErr} = await supabase
+  // 3) post_images row 삭제 (CASCADE 있으면 이 부분은 생략 가능)
+  const { error: imgDeleteErr } = await supabase
     .from("post_images")
     .delete()
     .eq("post_id", postId);
 
-    if (imgErr) {
-        console.error(imgErr);
-        throw new Error("post_images 삭제 실패");
-    }
+  if (imgDeleteErr) {
+    console.error("post_images 삭제 실패:", imgDeleteErr);
+    throw imgDeleteErr;
+  }
 
-    // 3) posts 삭제
-    const {error: postErr} = await supabase
+  // 4) posts 삭제
+  const { error: postErr } = await supabase
     .from("posts")
     .delete()
     .eq("id", postId);
 
-    if(postErr) {
-        console.error(postErr);
-        throw new Error("post 삭제 실패");
-    }
+  if (postErr) {
+    console.error("posts 삭제 실패:", postErr);
+    throw postErr;
+  }
 
-    redirect("/edit");
+  // 5) edit 리스트 다시 불러오도록
+  revalidatePath("/edit");  
+  redirect("/edit")
 }
